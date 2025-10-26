@@ -66,6 +66,7 @@
         <tr>
           <th>Categoria</th>
           <th>Valor (R$)</th>
+          <th>Ações</th>
         </tr>
       </thead>
       <tbody></tbody>
@@ -75,103 +76,164 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-  const ctx = document.getElementById('grafico-categorias');
-  let grafico;
+const ctx = document.getElementById('grafico-categorias');
+let grafico;
 
-  const API_URL = "https://parseapi.back4app.com/classes/Vendas";
-  const APP_ID = "jkOXA2vgoPRHDsnlUs7SbEzLlSu782TpiDedZYs8";
-  const JS_KEY = "OS4T49WJFOXSaHtt8TutHelUfMNOpSRaKwbuwyqe";
+const API_URL = "https://parseapi.back4app.com/classes/Vendas";
+const APP_ID = "jkOXA2vgoPRHDsnlUs7SbEzLlSu782TpiDedZYs8";
+const JS_KEY = "OS4T49WJFOXSaHtt8TutHelUfMNOpSRaKwbuwyqe";
 
-  function atualizarGrafico(categorias, valores) {
-    if (grafico) grafico.destroy();
-    grafico = new Chart(ctx, {
-      type: 'pie',
-      data: {
-        labels: categorias,
-        datasets: [{
-          label: 'Vendas',
-          data: valores,
-          backgroundColor: ['#008026', '#004DFF', '#750787', '#FF5733', '#FFC300', '#C70039', '#900C3F', '#581845', '#FF1493', '#00CED1']
-        }]
+function atualizarGrafico(categorias, valores) {
+  if (grafico) grafico.destroy();
+  grafico = new Chart(ctx, {
+    type: 'pie',
+    data: {
+      labels: categorias,
+      datasets: [{
+        label: 'Vendas',
+        data: valores,
+        backgroundColor: ['#008026', '#004DFF', '#750787', '#FF5733', '#FFC300', '#C70039', '#900C3F', '#581845', '#FF1493', '#00CED1']
+      }]
+    },
+    options: { responsive: true, maintainAspectRatio: true }
+  });
+}
+
+async function carregarVendas() {
+  try {
+    const res = await fetch(API_URL, {
+      method: "GET",
+      headers: {
+        "X-Parse-Application-Id": APP_ID,
+        "X-Parse-JavaScript-Key": JS_KEY,
+        "Content-Type": "application/json"
+      }
+    });
+    const data = await res.json();
+    return data.results || [];
+  } catch (err) {
+    console.error("Erro ao carregar vendas:", err);
+    return [];
+  }
+}
+
+
+async function adicionarVenda(categoria, valor) {
+  try {
+    await fetch(API_URL, {
+      method: "POST",
+      headers: {
+        "X-Parse-Application-Id": APP_ID,
+        "X-Parse-JavaScript-Key": JS_KEY,
+        "Content-Type": "application/json"
       },
-      options: { responsive: true, maintainAspectRatio: true }
+      body: JSON.stringify({ categoria, valor })
     });
+  } catch (err) {
+    console.error("Erro ao adicionar venda:", err);
   }
+}
 
-  async function carregarVendas() {
-    try {
-      const res = await fetch(API_URL, {
-        method: "GET",
-        headers: {
-          "X-Parse-Application-Id": APP_ID,
-          "X-Parse-JavaScript-Key": JS_KEY,
-          "Content-Type": "application/json"
-        }
-      });
-      const data = await res.json();
-      return data.results || [];
-    } catch (err) {
-      console.error("Erro ao carregar vendas:", err);
-      return [];
-    }
-  }
 
-  async function adicionarVenda(categoria, valor) {
-    try {
-      await fetch(API_URL, {
-        method: "POST",
-        headers: {
-          "X-Parse-Application-Id": APP_ID,
-          "X-Parse-JavaScript-Key": JS_KEY,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ categoria, valor })
-      });
-    } catch (err) {
-      console.error("Erro ao adicionar venda:", err);
-    }
-  }
-
-  async function carregarDadosCombinados() {
-    const vendas = await carregarVendas();
-    const resAPI = await fetch("https://fakestoreapi.com/products");
-    const produtos = await resAPI.json();
-
-    const categoriasAgrupadas = {};
-    vendas.forEach(v => {
-      categoriasAgrupadas[v.categoria] = (categoriasAgrupadas[v.categoria] || 0) + v.valor;
+async function deletarVenda(id) {
+  try {
+    await fetch(`${API_URL}/${id}`, {
+      method: "DELETE",
+      headers: {
+        "X-Parse-Application-Id": APP_ID,
+        "X-Parse-JavaScript-Key": JS_KEY,
+      },
     });
-
-    const categorias = Object.keys(categoriasAgrupadas);
-    const valores = Object.values(categoriasAgrupadas);
-    const totalVendas = vendas.reduce((acc, v) => acc + v.valor, 0);
-
-    document.getElementById('total-vendas').innerText = `R$ ${totalVendas}`;
-    document.getElementById('total-pedidos').innerText = vendas.length;
-    document.getElementById('total-clientes').innerText = produtos.length;
-
-    const tbody = document.querySelector("#tabelaVendas tbody");
-    tbody.innerHTML = "";
-    vendas.forEach(v => {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${v.categoria}</td><td>R$ ${v.valor}</td>`;
-      tbody.appendChild(tr);
-    });
-
-    atualizarGrafico(categorias, valores);
-  }
-
-  document.querySelector("#formVenda").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const categoria = document.querySelector("#categoria").value;
-    const valor = parseFloat(document.querySelector("#valor").value);
-
-    await adicionarVenda(categoria, valor);
-    e.target.reset();
     carregarDadosCombinados();
+  } catch (err) {
+    console.error("Erro ao deletar venda:", err);
+  }
+}
+
+
+async function atualizarVenda(id, categoria, valor) {
+  try {
+    await fetch(`${API_URL}/${id}`, {
+      method: "PUT",
+      headers: {
+        "X-Parse-Application-Id": APP_ID,
+        "X-Parse-JavaScript-Key": JS_KEY,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ categoria, valor })
+    });
+    carregarDadosCombinados();
+  } catch (err) {
+    console.error("Erro ao atualizar venda:", err);
+  }
+}
+
+
+async function carregarDadosCombinados() {
+  const vendas = await carregarVendas();
+  const resAPI = await fetch("https://fakestoreapi.com/products");
+  const produtos = await resAPI.json();
+
+  const categoriasAgrupadas = {};
+  vendas.forEach(v => {
+    categoriasAgrupadas[v.categoria] = (categoriasAgrupadas[v.categoria] || 0) + v.valor;
   });
 
+  const categorias = Object.keys(categoriasAgrupadas);
+  const valores = Object.values(categoriasAgrupadas);
+  const totalVendas = vendas.reduce((acc, v) => acc + v.valor, 0);
+
+  document.getElementById('total-vendas').innerText = `R$ ${totalVendas}`;
+  document.getElementById('total-pedidos').innerText = vendas.length;
+  document.getElementById('total-clientes').innerText = produtos.length;
+
+  const tbody = document.querySelector("#tabelaVendas tbody");
+  tbody.innerHTML = "";
+
+  vendas.forEach(v => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${v.categoria}</td>
+      <td>R$ ${v.valor}</td>
+      <td>
+        <button class="btn btn-warning btn-sm btn-editar" data-id="${v.objectId}">Editar</button>
+        <button class="btn btn-danger btn-sm btn-excluir" data-id="${v.objectId}">Excluir</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+
+  tbody.addEventListener("click", (e) => {
+    const id = e.target.dataset.id;
+    if (!id) return;
+    if (e.target.classList.contains("btn-excluir")) {
+      deletarVenda(id);
+    } else if (e.target.classList.contains("btn-editar")) {
+      const tr = e.target.closest("tr");
+      const novaCategoria = prompt("Nova categoria:", tr.children[0].innerText);
+      const novoValor = parseFloat(prompt("Novo valor:", tr.children[1].innerText.replace("R$ ","")));
+      if (novaCategoria && !isNaN(novoValor)) {
+        atualizarVenda(id, novaCategoria, novoValor);
+      }
+    }
+  });
+
+  atualizarGrafico(categorias, valores);
+}
+
+
+document.querySelector("#formVenda").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const categoria = document.querySelector("#categoria").value;
+  const valor = parseFloat(document.querySelector("#valor").value);
+
+  await adicionarVenda(categoria, valor);
+  e.target.reset();
   carregarDadosCombinados();
+});
+
+carregarDadosCombinados();
 </script>
 </body>
 </html>
